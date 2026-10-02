@@ -1,0 +1,94 @@
+name: Repair Natron source snapshot parity
+
+on:
+  push:
+    branches:
+      - bootstrap/upstream-import-20261002
+    paths:
+      - .github/workflows/repair-snapshot-parity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout import branch
+        uses: actions/checkout@v4
+        with:
+          ref: import/upstream-source-20261002
+          fetch-depth: 1
+
+      - name: Restore all tracked upstream entries exactly
+        shell: bash
+        env:
+          UPSTREAM_URL: https://github.com/NatronGitHub/Natron.git
+          UPSTREAM_BRANCH: RB-2.6
+          EXPECTED_UPSTREAM_SHA: 3763d805d7d277d10af10025ae41af677682b3e6
+          IMPORT_BRANCH: import/upstream-source-20261002
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          tmp="$(mktemp -d)"
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --depth 1 --single-branch --branch "$UPSTREAM_BRANCH" "$UPSTREAM_URL" "$tmp/upstream"
+          actual_sha="$(git -C "$tmp/upstream" rev-parse HEAD)"
+          test "$actual_sha" = "$EXPECTED_UPSTREAM_SHA"
+
+          rm -rf .github-workflows-disabled
+          rsync -a --exclude='.git' "$tmp/upstream"/ ./
+
+          if [ -d .github/workflows ]; then
+            mv .github/workflows .github-workflows-disabled
+          fi
+
+          cat > UPSTREAM_SOURCE.md <<EOF
+          # Upstream source import
+
+          Product: Natron
+
+          Official upstream: https://github.com/NatronGitHub/Natron.git
+
+          Upstream branch: RB-2.6
+
+          Upstream commit: 3763d805d7d277d10af10025ae41af677682b3e6
+
+          Import date: 2026-10-02
+
+          This repository contains a source snapshot from the official upstream project.
+          If the upstream repository contained GitHub Actions workflows, those workflow
+          files were preserved under .github-workflows-disabled/ so importing the source
+          cannot automatically execute third-party CI in this repository. Original
+          project license and source files are otherwise preserved in the imported
+          snapshot.
+          EOF
+
+          large_files="$(find . -type f -not -path './.git/*' -size +95M -print || true)"
+          if [ -n "$large_files" ]; then
+            echo "::error::Repair stopped because files larger than 95 MiB were found:"
+            echo "$large_files"
+            exit 1
+          fi
+
+          git add -f -A
+
+          while IFS=$'\t' read -r prefix path; do
+            mode="$(printf '%s' "$prefix" | awk '{print $1}')"
+            obj="$(printf '%s' "$prefix" | awk '{print $3}')"
+            if [ "$mode" = "160000" ]; then
+              rm -rf "$path"
+              git update-index --add --cacheinfo "160000,$obj,$path"
+            fi
+          done < <(git -C "$tmp/upstream" ls-tree -r HEAD)
+
+          if git diff --cached --quiet; then
+            echo "Snapshot already matches expected parity."
+            exit 0
+          fi
+
+          git commit -m "fix: restore complete Natron upstream snapshot parity"
+          git push origin "HEAD:refs/heads/$IMPORT_BRANCH"
