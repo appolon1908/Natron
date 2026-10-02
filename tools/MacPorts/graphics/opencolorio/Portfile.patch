@@ -1,0 +1,73 @@
+--- Portfile.orig	2026-07-11 18:25:03
++++ Portfile	2026-07-11 18:28:17
+@@ -33,6 +33,7 @@
+ 
+ # Keep this condition the same in the opencolorio, openimageio, and osl ports.
+ set port_latest [expr {${os.platform} ne "darwin" || ${os.major} >= 20}]
++set port_latest 1
+ 
+ if {!${port_latest}} {
+     github.setup        AcademySoftwareFoundation OpenColorIO 1.1.1 v
+@@ -120,8 +121,9 @@
+ # see https://github.com/imageworks/OpenColorIO/blob/15e96c1f579d3640947a5fcb5ec831383cc3956e/src/pyglue/CMakeLists.txt#L85
+ 
+ variant python310 description {Build the Python 3.10 bindings} conflicts python311 python312 python313 python314 {
+-    depends_lib-append port:python310
++    depends_lib-append port:python310 port:py310-pybind11
+     configure.args-append \
++        -DOCIO_PYTHON_VERSION=3.10 \
+         -DPYTHON=${prefix}/bin/python3.10
+     post-destroot {
+         xinstall -d -m 0755 \
+@@ -133,8 +135,9 @@
+ }
+ 
+ variant python311 description {Build the Python 3.11 bindings} conflicts python310 python312 python313 python314 {
+-    depends_lib-append port:python311
++    depends_lib-append port:python311 port:py311-pybind11
+     configure.args-append \
++        -DOCIO_PYTHON_VERSION=3.11 \
+         -DPYTHON=${prefix}/bin/python3.11
+     post-destroot {
+         xinstall -d -m 0755 \
+@@ -146,8 +149,9 @@
+ }
+ 
+ variant python312 description {Build the Python 3.12 bindings} conflicts python310 python311 python313 python314 {
+-    depends_lib-append port:python312
++    depends_lib-append port:python312 port:py312-pybind11
+     configure.args-append \
++        -DOCIO_PYTHON_VERSION=3.12 \
+         -DPYTHON=${prefix}/bin/python3.12
+     post-destroot {
+         xinstall -d -m 0755 \
+@@ -159,8 +163,9 @@
+ }
+ 
+ variant python313 description {Build the Python 3.13 bindings} conflicts python310 python311 python312 python314 {
+-    depends_lib-append port:python313
++    depends_lib-append port:python313 port:py313-pybind11
+     configure.args-append \
++        -DOCIO_PYTHON_VERSION=3.13 \
+         -DPYTHON=${prefix}/bin/python3.13
+     post-destroot {
+         xinstall -d -m 0755 \
+@@ -172,8 +177,9 @@
+ }
+ 
+ variant python314 description {Build the Python 3.14 bindings} conflicts python310 python311 python312 python313 {
+-    depends_lib-append port:python314
++    depends_lib-append port:python314 port:py314-pybind11
+     configure.args-append \
++        -DOCIO_PYTHON_VERSION=3.14 \
+         -DPYTHON=${prefix}/bin/python3.14
+     post-destroot {
+         xinstall -d -m 0755 \
+@@ -201,6 +207,7 @@
+     ![variant_isset python314]
+ } {
+     configure.args-append \
++        -DOCIO_BUILD_PYTHON=OFF \
+         -DOCIO_BUILD_PYGLUE=OFF
+ }
+ 
