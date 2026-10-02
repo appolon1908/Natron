@@ -1,0 +1,145 @@
+--- Portfile.orig	2026-07-13 21:28:33
++++ Portfile	2026-07-13 21:31:49
+@@ -97,6 +97,8 @@
+                     port:libvorbis \
+                     path:lib/pkgconfig/vpx.pc:libvpx \
+                     port:openjpeg \
++                    port:openh264 \
++                    port:snappy \
+                     port:soxr \
+                     path:lib/libspeex.dylib:speex \
+                     port:webp \
+@@ -141,6 +143,11 @@
+ # warning: unknown warning option '-Werror=partial-availability'; did you mean '-Werror=availability'? [-Wunknown-warning-option]
+ # warning: unknown warning option '-Wno-bool-operation'; did you mean '-Wno-bool-conversion'? [-Wunknown-warning-option]
+ compiler.blacklist-append {clang < 900}
++
++# gcc > 4.2 is required, https://trac.ffmpeg.org/ticket/1464
++# WARNING: gcc 4.2 is outdated and may miscompile FFmpeg. Please use a newer compiler.
++compiler.blacklist-append \
++                    *gcc-4.0 *gcc-4.2
+ 
+ # The old ffmpeg port was GPL-2+ as base and had a no_gpl variant, so this keeps us consistent
+ # Also, -gpl2 causes other ports to fail to build due to the missing libpostproc (#35473)
+@@ -164,6 +171,7 @@
+ set port_docdir     ${port_sharedir}/doc
+ 
+ configure.pre_args-append \
++                    --cxx="${configure.cxx}" \
+                     --cc="${configure.cc}"
+ 
+ configure.args-append \
+@@ -194,6 +202,8 @@
+                     --enable-libmodplug \
+                     --enable-libmp3lame \
+                     --enable-libopenjpeg \
++                    --enable-libopenh264 \
++                    --enable-libsnappy \
+                     --enable-libopus \
+                     --enable-librsvg \
+                     --enable-libsoxr \
+@@ -343,7 +353,16 @@
+                     --disable-dependency-tracking
+ 
+ if {${universal_possible} && [variant_isset universal]} {
++    # the following is inspired by the icu Portfile
++    # if we can't run executables for the target arch, mark it as a cross-compile
+     foreach arch ${configure.universal_archs} {
++        if {((${os.major} < 9 || [sysctl hw.cpu64bit_capable] == 0) && ($arch == "x86_64" || $arch == "ppc64"))
++            || (${os.arch} == "powerpc" && ($arch == "x86_64" || $arch == "i386"))
++            || (${os.arch} == "i386" && ($arch == "ppc" || $arch == "ppc64"))} {
++            set merger_configure_args($arch) "--enable-cross-compile --target-os=${os.platform}"
++        }
++    }
++    foreach arch ${configure.universal_archs} {
+         set merger_host($arch) ""
+         lappend merger_configure_args($arch) \
+                     --arch=${arch}
+@@ -377,7 +396,25 @@
+ test.run            yes
+ 
+ destroot.env-append V=1
++
++post-extract {
++    if {${configure.cxx_stdlib} eq "libc++"} {
++        # fix configure, which contains many references to libstdc++
++        reinplace -E {s|-lstdc|-lc|g} ${worksrcpath}/configure
++    }
++}
+ 
++post-configure {
++    if {[variant_isset universal]} {
++        # fix *.pc for universal build (i386 version may miss these extra bits on Leopard)
++        foreach arch ${universal_archs_to_use} {
++            foreach fixfile [exec find ${worksrcpath}-${arch} -name "*.pc"] {
++                reinplace -E {s|Libs.private: -l|Libs.private: -framework QTKit -framework Foundation -framework QuartzCore -l|g} ${fixfile}
++            }
++        }
++    }
++}
++
+ post-destroot {
+     # Copy docs
+     file mkdir ${destroot}${port_docdir}
+@@ -387,6 +424,46 @@
+     }
+ }
+ 
++variant natronmini requires highbitdepth conflicts x11 description {Minimal FFmpeg for Natron, without bluray, subtitles, network, display support.} {
++
++    depends_lib-delete \
++                    port:libiconv \
++                    port:libass \
++                    port:libbluray \
++                    port:gnutls \
++                    port:fontconfig \
++                    port:freetype \
++                    port:fribidi \
++                    port:libsdl2 \
++                    port:zimg
++
++    configure.args-delete \
++                    --enable-libass \
++                    --enable-libbluray \
++                    --enable-gnutls \
++                    --enable-fontconfig \
++                    --enable-libfreetype \
++                    --enable-libfribidi \
++                    --enable-sdl2 \
++                    --enable-libzimg \
++                    --cc=${configure.cc} \
++                    --cxx=${configure.cxx}
++
++    configure.args-append \
++                    --disable-libass \
++                    --disable-libbluray \
++                    --disable-gnutls \
++                    --disable-fontconfig \
++                    --disable-libfreetype \
++                    --disable-libfribidi \
++                    --disable-sdl2 \
++                    --disable-securetransport \
++                    --disable-iconv \
++                    --cc=${configure.cc} \
++                    --cxx=${configure.cxx}
++
++}
++
+ variant x11 {
+     # enable x11grab_xcb input device
+     depends_lib-append \
+@@ -449,6 +526,14 @@
+                     path:lib/pkgconfig/gnutls.pc:gnutls
+ }
+ 
++variant highbitdepth description {Build using libvpx with 10/12-bit output} {}
++
++if {[variant_isset highbitdepth]} {
++    require_active_variants libvpx highbitdepth
++} else {
++    require_active_variants libvpx "" highbitdepth
++}
++
+ variant gpl2 description {Enable GPL code, license will be GPL-2+} {
+     license         GPL-2+
+ 

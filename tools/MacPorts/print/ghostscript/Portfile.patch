@@ -1,0 +1,16 @@
+--- Portfile.orig	2021-02-13 12:14:43.000000000 -0800
++++ Portfile	2021-02-13 12:14:43.000000000 -0800
+@@ -131,6 +131,13 @@
+ 
+ build.target        so
+ 
++if {[variant_isset universal]} {
++    lappend merger_configure_args(i386)     --enable-little-endian
++    lappend merger_configure_args(x86_64)   --enable-little-endian
++    lappend merger_configure_args(ppc)      --enable-big-endian
++    lappend merger_configure_args(ppc64)    --enable-big-endian
++}
++
+ destroot.target     soinstall
+ post-destroot {
+     ln -s gsc ${destroot}${prefix}/bin/gs
