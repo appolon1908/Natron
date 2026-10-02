@@ -1,0 +1,65 @@
+name: Restore Natron upstream gitlinks
+
+on:
+  push:
+    branches:
+      - bootstrap/upstream-import-20261002
+    paths:
+      - .github/workflows/restore-gitlinks.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore-gitlinks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout import branch
+        uses: actions/checkout@v4
+        with:
+          ref: import/upstream-source-20261002
+          fetch-depth: 1
+
+      - name: Restore exact upstream submodule pointers
+        shell: bash
+        env:
+          UPSTREAM_URL: https://github.com/NatronGitHub/Natron.git
+          UPSTREAM_BRANCH: RB-2.6
+          EXPECTED_UPSTREAM_SHA: 3763d805d7d277d10af10025ae41af677682b3e6
+          IMPORT_BRANCH: import/upstream-source-20261002
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          tmp="$(mktemp -d)"
+          export GIT_LFS_SKIP_SMUDGE=1
+          git clone --depth 1 --single-branch --branch "$UPSTREAM_BRANCH" "$UPSTREAM_URL" "$tmp/upstream"
+          actual_sha="$(git -C "$tmp/upstream" rev-parse HEAD)"
+          test "$actual_sha" = "$EXPECTED_UPSTREAM_SHA"
+
+          changed=0
+          while IFS=$'\t' read -r prefix path; do
+            mode="$(printf '%s' "$prefix" | awk '{print $1}')"
+            obj="$(printf '%s' "$prefix" | awk '{print $3}')"
+            if [ "$mode" = "160000" ]; then
+              rm -rf "$path"
+              git update-index --add --cacheinfo "160000,$obj,$path"
+              echo "restored gitlink: $path -> $obj"
+              changed=1
+            fi
+          done < <(git -C "$tmp/upstream" ls-tree -r HEAD)
+
+          if [ "$changed" -eq 0 ]; then
+            echo "::error::No upstream gitlinks were discovered."
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "Gitlinks already match upstream."
+            exit 0
+          fi
+
+          git commit -m "fix: preserve official Natron submodule gitlinks"
+          git push origin "HEAD:refs/heads/$IMPORT_BRANCH"
