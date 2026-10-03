@@ -342,6 +342,8 @@ def main() -> None:
         return
     if args.host not in {"127.0.0.1", "::1", "localhost"}:
         raise SystemExit("refusing_non_loopback_bind")
+    if not TOKEN:
+        raise SystemExit("CODESTRA_VIDEO_API_TOKEN_required")
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
 
 
