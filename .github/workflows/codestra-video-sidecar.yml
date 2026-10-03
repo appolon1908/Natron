@@ -1,0 +1,29 @@
+name: Codestra video sidecar
+
+on:
+  pull_request:
+    paths:
+      - "codestra_api/**"
+      - ".github/workflows/codestra-video-sidecar.yml"
+  push:
+    branches:
+      - "feature/video-stack-control-plane"
+    paths:
+      - "codestra_api/**"
+      - ".github/workflows/codestra-video-sidecar.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  sidecar-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile API
+        run: python3 -m py_compile codestra_api/server.py
+      - name: Safety self-test
+        env:
+          CODESTRA_VIDEO_ROOT: ${{ runner.temp }}/codestra-video
+        run: python3 codestra_api/server.py --self-test
