@@ -116,8 +116,15 @@ def command_for(payload: dict) -> list[str]:
         return cmd
 
     if ENGINE == "natron":
-        project = safe_path(payload.get("project", ""), must_exist=True)
+        project_value = payload.get("project")
+        script_value = payload.get("script")
+        if not project_value and not script_value:
+            raise ValueError("project_or_script_required")
         cmd = [BINARY]
+        if script_value and not project_value:
+            cmd.append(str(safe_path(script_value, must_exist=True)))
+            return cmd
+        project = safe_path(project_value, must_exist=True)
         writer = payload.get("writer")
         output = payload.get("output")
         if writer:
