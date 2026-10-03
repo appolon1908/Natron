@@ -122,7 +122,7 @@ def command_for(payload: dict) -> list[str]:
             raise ValueError("project_or_script_required")
         cmd = [BINARY]
         if script_value and not project_value:
-            cmd.append(str(safe_path(script_value, must_exist=True)))
+            cmd += ["--opengl", "disabled", "-t", str(safe_path(script_value, must_exist=True))]
             return cmd
         project = safe_path(project_value, must_exist=True)
         writer = payload.get("writer")
