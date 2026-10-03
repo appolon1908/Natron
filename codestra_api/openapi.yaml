@@ -1,0 +1,50 @@
+openapi: 3.0.3
+info:
+  title: codestra-natron-api
+  version: 1.0.0
+  description: Loopback-only Codestra natron execution sidecar. Middleware owns durable orchestration.
+servers:
+  - url: http://127.0.0.1:18103
+paths:
+  /health:
+    get:
+      responses:
+        "200":
+          description: Runtime and binary readiness
+  /status:
+    get:
+      responses:
+        "200":
+          description: Recent local jobs
+  /status/{job_id}:
+    get:
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema: {type: string}
+      responses:
+        "200": {description: Job readback}
+        "404": {description: Unknown job}
+  /render:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        "202": {description: Accepted local render job}
+        "400": {description: Invalid payload}
+        "409": {description: Capacity reached}
+        "503": {description: Engine unavailable}
+  /stop/{job_id}:
+    post:
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema: {type: string}
+      responses:
+        "202": {description: Stop requested}
+        "404": {description: Unknown job}
