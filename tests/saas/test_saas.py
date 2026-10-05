@@ -21,6 +21,8 @@ def test_health_ready_and_idempotency(tmp_path, monkeypatch):
     p={"kind":"render_project","project_id":"p1","parameters":{}}
     one=client.post("/v1/jobs",headers=h,json=p); two=client.post("/v1/jobs",headers=h,json=p)
     assert one.status_code == 202 and one.json()["id"] == two.json()["id"]
+    found=client.get("/v1/jobs/by-idempotency",headers={"X-Tenant-ID":"t1"},params={"idempotency_key":"idem-0001"})
+    assert found.status_code == 200 and found.json()["id"] == one.json()["id"]
     assert client.get(f"/v1/jobs/{one.json()['id']}",headers={"X-Tenant-ID":"other"}).status_code == 404
 
 
