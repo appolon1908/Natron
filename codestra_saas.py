@@ -100,6 +100,11 @@ class Store:
             row = db.execute("SELECT * FROM jobs WHERE tenant_id=? AND id=?", (tenant, job_id)).fetchone()
             return self.as_dict(row) if row else None
 
+    def get_by_idempotency(self, tenant: str, idempotency_key: str) -> dict[str, Any] | None:
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM jobs WHERE tenant_id=? AND idempotency_key=?", (tenant, idempotency_key)).fetchone()
+            return self.as_dict(row) if row else None
+
     def list(self, tenant: str, limit: int) -> list[dict[str, Any]]:
         with self.connect() as db:
             rows = db.execute("SELECT * FROM jobs WHERE tenant_id=? ORDER BY created_at DESC LIMIT ?", (tenant, min(max(limit,1),100))).fetchall()
@@ -189,6 +194,13 @@ def create_job(payload: JobCreate, t: str = Depends(tenant), a: str = Depends(ac
 
 @app.get("/v1/jobs", dependencies=[Depends(auth)])
 def list_jobs(t: str = Depends(tenant), limit: int = Query(50, ge=1, le=100)) -> list[dict[str, Any]]: return store.list(t, limit)
+
+
+@app.get("/v1/jobs/by-idempotency", dependencies=[Depends(auth)])
+def get_job_by_idempotency(idempotency_key: str = Query(min_length=8, max_length=128), t: str = Depends(tenant)) -> dict[str, Any]:
+    job = store.get_by_idempotency(t, idempotency_key)
+    if not job: raise HTTPException(404, "job_not_found")
+    return job
 
 
 @app.get("/v1/jobs/{job_id}", dependencies=[Depends(auth)])
