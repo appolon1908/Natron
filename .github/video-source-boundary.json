@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "repository": "appolon1908/Natron",
+  "reviewed_base_sha": "c987a8c88b3d718eaff790e672bcde524d3da312",
+  "reviewed_base_tree": "e7066f0e8c4faa3439ba6206e30b6ca6895147bc",
+  "tested_sources": [
+    "codestra_api/server.py"
+  ],
+  "native_engine_certified": false,
+  "scope": "owned-sidecar-source-with-frozen-native-snapshot"
+}
