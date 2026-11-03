@@ -1,0 +1,22 @@
+name: Standalone SaaS API
+on:
+  pull_request:
+    paths: ["codestra_saas.py", "tests/saas/**", "requirements-saas.txt", "Dockerfile.saas", "compose.saas.yml", ".github/workflows/saas-api.yml"]
+  push:
+    branches: [main, development, testing, staging, production]
+    paths: ["codestra_saas.py", "tests/saas/**", "requirements-saas.txt", "Dockerfile.saas", "compose.saas.yml", ".github/workflows/saas-api.yml"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-saas.txt
+      - run: python -m py_compile codestra_saas.py
+      - run: PYTHONPATH=. pytest -q tests/saas
+      - name: Verify OpenAPI generation
+        env:
+          CODESTRA_AUTH_MODE: development
+        run: python -c "import codestra_saas; assert codestra_saas.app.openapi()['openapi'].startswith('3.')"
